@@ -1,0 +1,21 @@
+---
+- name: Clone the repository
+  git:
+    repo: 'https://github.com/hngprojects/hng_boilerplate_php_laravel_web.git'
+    version: devops
+    dest: /opt/stage_5b
+    update: yes
+    force: yes
+
+- name: Ensure the app directory is owned by hng
+  file:
+    path: /opt/stage_5b
+    owner: hng
+    group: hng
+    recurse: yes
+
+- name: Install Composer dependencies
+  command: composer install
+  args:
+    chdir: /opt/stage_5b
+

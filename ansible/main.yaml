@@ -1,0 +1,25 @@
+---
+- name: Setup PHP Laravel Application
+  hosts: hng
+  become: yes
+  tasks:
+    - name: Include setup user and directories
+      import_tasks: tasks/setup_user_and_directories.yaml
+
+    - name: Include install dependencies
+      import_tasks: tasks/install_dependencies.yaml
+
+    - name: Include PostgreSQL setup
+      import_tasks: tasks/setup_postgresql.yaml
+
+    - name: Include messaging queue setup
+      import_tasks: tasks/setup_messaging_queue.yaml
+
+    - name: Include application setup
+      import_tasks: tasks/application_setup.yaml
+
+    - name: Include logging setup
+      import_tasks: tasks/logging_setup.yaml
+
+    - name: Include Nginx configuration
+      import_tasks: tasks/nginx_config.yaml

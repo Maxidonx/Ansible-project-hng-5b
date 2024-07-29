@@ -1,0 +1,29 @@
+---
+- name: Ensure PostgreSQL service is running
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Create PostgreSQL database
+  postgresql_db:
+    name: stage_5b
+    state: present
+
+- name: Save PostgreSQL admin credentials
+  copy:
+    content: |
+      DB_USER=postgres
+      DB_PASSWORD={{ postgres_admin_password }}
+    dest: /var/secrets/pg_pw.txt
+    owner: hng
+    group: hng
+    mode: '0600'
+
+- name: Create PostgreSQL user
+  postgresql_user:
+    name: hng_user
+    password: "{{ postgres_user_password }}"
+    db: stage_5b
+    priv: "ALL"
+    state: present

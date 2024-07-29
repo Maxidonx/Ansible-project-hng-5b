@@ -1,0 +1,26 @@
+---
+- name: Ensure /var/log/stage_5b directory exists
+  file:
+    path: /var/log/stage_5b
+    state: directory
+    owner: hng
+    group: hng
+    mode: '0755'
+
+- name: Configure stderr and stdout logging
+  lineinfile:
+    path: /etc/systemd/system/stage_5b.service
+    line: 'StandardOutput=append:/var/log/stage_5b/out.log'
+    create: yes
+    owner: hng
+    group: hng
+    mode: '0644'
+
+- name: Configure stderr logging
+  lineinfile:
+    path: /etc/systemd/system/stage_5b.service
+    line: 'StandardError=append:/var/log/stage_5b/error.log'
+    create: yes
+    owner: hng
+    group: hng
+    mode: '0644'

@@ -1,0 +1,17 @@
+---
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Configure Nginx to reverse proxy application
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/stage_5b
+    owner: hng
+    group: hng
+    mode: '0644'
+
+- name: Enable Nginx site configuration
+  command: nginx -s reload
+

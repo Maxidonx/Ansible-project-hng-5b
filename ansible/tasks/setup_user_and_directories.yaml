@@ -1,0 +1,15 @@
+---
+- name: Ensure user 'hng' exists
+  user:
+    name: hng
+    state: present
+    groups: sudo
+    append: yes
+
+- name: Ensure /opt/stage_5b directory exists
+  file:
+    path: /opt/stage_5b
+    state: directory
+    owner: hng
+    group: hng
+    mode: '0755'
