@@ -1,0 +1,517 @@
+# ---
+# - name: Setup PHP Laravel Application
+#   hosts: hng
+#   become: yes
+#   vars:
+#     repo_url: "https://github.com/hngprojects/hng_boilerplate_php_laravel_web.git"
+#     repo_branch: "devops"
+#     app_dir: "/opt/stage_5b"
+#     pg_password_file: "/var/secrets/pg_pw.txt"
+#     db_user: "admin"
+#     db_password: "3130DonX"  # Replace with a secure method to handle secrets
+#     db_name: "laravel_db"
+#     db_host: "localhost"
+#     db_port: "5432"
+#     php_version: "8.2"  # Adjust based on your requirement
+
+#   tasks:
+#     - name: Ensure user 'hng' exists
+#       ansible.builtin.user:
+#         name: hng
+#         state: present
+#         groups: sudo
+#         append: yes
+
+#     - name: Ensure /var/secrets directory exists
+#       ansible.builtin.file:
+#         path: /var/secrets
+#         state: directory
+#         mode: '0700'
+#         owner: hng
+#         group: hng
+
+#     - name: Save PostgreSQL admin credentials
+#       ansible.builtin.copy:
+#         dest: "{{ pg_password_file }}"
+#         content: "{{ db_user }}:{{ db_password }}"
+#         mode: '0600'
+#         owner: hng
+#         group: hng
+
+#     - name: Add Ondřej Surý PPA for PHP
+#       ansible.builtin.apt_repository:
+#         repo: ppa:ondrej/php
+#         state: present
+
+#     - name: Update apt cache
+#       ansible.builtin.apt:
+#         update_cache: yes
+
+#     - name: Install required packages
+#       ansible.builtin.apt:
+#         name: "{{ item }}"
+#         state: present
+#         update_cache: yes
+#       loop:
+#         - git
+#         - postgresql
+#         - postgresql-contrib
+#         - nginx
+#         - redis-server
+#         - php{{ php_version }}
+#         - php{{ php_version }}-cli
+#         - php{{ php_version }}-pgsql
+#         - php{{ php_version }}-mbstring
+#         - php{{ php_version }}-xml
+#         - php{{ php_version }}-curl
+#         - php{{ php_version }}-zip
+#         - composer
+
+#     - name: Ensure PostgreSQL service is running
+#       ansible.builtin.service:
+#         name: postgresql
+#         state: started
+#         enabled: yes
+
+#     - name: Ensure Redis service is running
+#       ansible.builtin.service:
+#         name: redis-server
+#         state: started
+#         enabled: yes
+
+#     - name: Clone the repository
+#       ansible.builtin.git:
+#         repo: "{{ repo_url }}"
+#         dest: "{{ app_dir }}"
+#         version: "{{ repo_branch }}"
+#         force: yes
+#         accept_hostkey: yes
+
+#     - name: Ensure the app directory is owned by hng
+#       ansible.builtin.file:
+#         path: "{{ app_dir }}"
+#         state: directory
+#         owner: hng
+#         group: hng
+#         recurse: yes
+
+#     - name: Create PostgreSQL database
+#       become_user: postgres
+#       ansible.builtin.command:
+#         cmd: "psql -c 'CREATE DATABASE {{ db_name }};'"
+#       ignore_errors: true
+
+#     - name: Create PostgreSQL user
+#       become_user: postgres
+#       ansible.builtin.command:
+#         cmd: "psql -c 'CREATE USER {{ db_user }} WITH PASSWORD ''{{ db_password }}'';'"
+#       ignore_errors: true
+
+#     - name: Grant all privileges on database to user
+#       become_user: postgres
+#       ansible.builtin.command:
+#         cmd: "psql -c 'GRANT ALL PRIVILEGES ON DATABASE {{ db_name }} TO {{ db_user }};'"
+#       ignore_errors: true
+
+#     - name: Install Composer dependencies
+#       command: |
+#         cd {{ app_dir }}
+#         composer install
+
+#     - name: Set up environment file
+#       copy:
+#         dest: "{{ app_dir }}/.env"
+#         content: |
+#           APP_NAME=Laravel
+#           APP_ENV=local
+#           APP_KEY=
+#           APP_DEBUG=true
+#           APP_URL=http://localhost
+          
+#           LOG_CHANNEL=stack
+
+#           DB_CONNECTION=pgsql
+#           DB_HOST={{ db_host }}
+#           DB_PORT={{ db_port }}
+#           DB_DATABASE={{ db_name }}
+#           DB_USERNAME={{ db_user }}
+#           DB_PASSWORD={{ db_password }}
+
+#           BROADCAST_DRIVER=log
+#           CACHE_DRIVER=file
+#           QUEUE_CONNECTION=redis
+#           SESSION_DRIVER=file
+#           SESSION_LIFETIME=120
+
+#           REDIS_HOST=127.0.0.1
+#           REDIS_PASSWORD=null
+#           REDIS_PORT=6379
+
+#           MAIL_MAILER=smtp
+#           MAIL_HOST=smtp.mailtrap.io
+#           MAIL_PORT=2525
+#           MAIL_USERNAME=null
+#           MAIL_PASSWORD=null
+#           MAIL_ENCRYPTION=null
+
+#           AWS_ACCESS_KEY_ID=
+#           AWS_SECRET_ACCESS_KEY=
+#           AWS_DEFAULT_REGION=us-east-1
+#           AWS_BUCKET=
+
+#           PUSHER_APP_ID=
+#           PUSHER_APP_KEY=
+#           PUSHER_APP_SECRET=
+#           PUSHER_APP_CLUSTER=mt1
+
+#           MIX_PUSHER_APP_KEY="${PUSHER_APP_KEY}"
+#           MIX_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
+#         owner: hng
+#         group: hng
+#         mode: '0644'
+
+#     - name: Generate application key
+#       command: |
+#         cd {{ app_dir }}
+#         php artisan key:generate
+
+#     - name: Set up Supervisor to run Laravel queue worker
+#       copy:
+#         dest: /etc/supervisor/conf.d/laravel-worker.conf
+#         content: |
+#           [program:laravel-worker]
+#           process_name=%(program_name)s_%(process_num)02d
+#           command=php {{ app_dir }}/artisan queue:work redis --sleep=3 --tries=3 --daemon
+#           autostart=true
+#           autorestart=true
+#           user=hng
+#           numprocs=1
+#           redirect_stderr=true
+#           stdout_logfile=/var/log/stage_5b/worker.log
+#         notify: Reload supervisor
+
+#     - name: Reload Supervisor
+#       supervisorctl:
+#         state: reloaded
+
+#     - name: Ensure application is running on 127.0.0.1:3000
+#       command: |
+#         cd {{ app_dir }}
+#         nohup php artisan serve --host=127.0.0.1 --port=3000 > /var/log/stage_5b/out.log 2> /var/log/stage_5b/error.log &
+#       environment:
+#         PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
+#         APP_ENV: "local"
+
+#     - name: Configure Nginx to proxy pass to the app
+#       ansible.builtin.template:
+#         src: nginx.conf.j2
+#         dest: /etc/nginx/sites-available/stage_5b
+#         mode: '0644'
+
+#     - name: Enable Nginx configuration
+#       ansible.builtin.file:
+#         src: /etc/nginx/sites-available/stage_5b
+#         dest: /etc/nginx/sites-enabled/stage_5b
+#         state: link
+
+#     - name: Ensure Nginx service is running
+#       ansible.builtin.service:
+#         name: nginx
+#         state: started
+#         enabled: yes
+
+#     - name: Ensure logging directory exists
+#       ansible.builtin.file:
+#         path: /var/log/stage_5b
+#         state: directory
+#         owner: hng
+#         group: hng
+#         mode: '0755'
+
+#     - name: Create stderr log file
+#       ansible.builtin.file:
+#         path: /var/log/stage_5b/error.log
+#         state: touch
+#         owner: hng
+#         group: hng
+#         mode: '0644'
+
+#     - name: Create stdout log file
+#       ansible.builtin.file:
+#         path: /var/log/stage_5b/out.log
+#         state: touch
+#         owner: hng
+#         group: hng
+#         mode: '0644'
+
+
+---
+- name: Setup PHP Laravel Application
+  hosts: hng
+  become: yes
+  vars:
+    repo_url: "https://github.com/hngprojects/hng_boilerplate_php_laravel_web.git"
+    repo_branch: "devops"
+    app_dir: "/opt/stage_5b"
+    pg_password_file: "/var/secrets/pg_pw.txt"
+    db_user: "admin"
+    db_password: "3130DonX"  # Replace with a secure method to handle secrets
+    db_name: "laravel_db"
+    db_host: "localhost"
+    db_port: "5432"
+    php_version: "8.2"  # Adjust based on your requirement
+
+  tasks:
+    - name: Ensure user 'hng' exists
+      ansible.builtin.user:
+        name: hng
+        state: present
+        groups: sudo
+        append: yes
+
+    - name: Ensure /var/secrets directory exists
+      ansible.builtin.file:
+        path: /var/secrets
+        state: directory
+        mode: '0700'
+        owner: hng
+        group: hng
+
+    - name: Save PostgreSQL admin credentials
+      ansible.builtin.copy:
+        dest: "{{ pg_password_file }}"
+        content: "{{ db_user }}:{{ db_password }}"
+        mode: '0600'
+        owner: hng
+        group: hng
+
+    - name: Add Ondřej Surý PPA for PHP
+      ansible.builtin.apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - git
+        - postgresql
+        - postgresql-contrib
+        - nginx
+        - redis-server
+        - php{{ php_version }}
+        - php{{ php_version }}-cli
+        - php{{ php_version }}-pgsql
+        - php{{ php_version }}-mbstring
+        - php{{ php_version }}-xml
+        - php{{ php_version }}-curl
+        - php{{ php_version }}-zip
+        - composer
+
+    - name: Ensure PostgreSQL service is running
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Ensure Redis service is running
+      ansible.builtin.service:
+        name: redis-server
+        state: started
+        enabled: yes
+
+    - name: Clone the repository
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: "{{ repo_branch }}"
+        force: yes
+        accept_hostkey: yes
+
+    - name: Ensure the app directory is owned by hng
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: hng
+        group: hng
+        recurse: yes
+
+    # - name: Create PostgreSQL database
+    #   become: yes
+    #   become_user: postgres
+    #   command: psql -c 'CREATE DATABASE {{ db_name }};'
+    #   ignore_errors: true
+
+    # - name: Create PostgreSQL user
+    #   become: yes
+    #   become_user: postgres
+    #   command: psql -c 'CREATE USER {{ db_user }} WITH PASSWORD ''{{ db_password }}'';'
+    #   ignore_errors: true
+
+    # - name: Grant all privileges on database to user
+    #   become: yes
+    #   become_user: postgres
+    #   command: psql -c 'GRANT ALL PRIVILEGES ON DATABASE {{ db_name }} TO {{ db_user }};'
+    #   ignore_errors: true
+    - name: Create PostgreSQL database
+      community.postgresql.postgresql_db:
+        name: your_database_name
+        state: present
+      become: yes
+      become_user: postgres
+
+    - name: Create PostgreSQL user
+      community.postgresql.postgresql_user:
+        name: your_user_name
+        password: your_password
+        priv: "your_database_name:ALL"
+        state: present
+      become: yes
+      become_user: postgres
+
+    - name: Grant all privileges on database to user
+      community.postgresql.postgresql_privs:
+        db: your_database_name
+        role: your_user_name
+        type: database
+        priv: ALL
+        state: present
+      become: yes
+      become_user: postgres
+
+
+    - name: Install Composer dependencies
+      shell: |
+        cd {{ app_dir }}
+        composer install
+      register: composer_result
+      ignore_errors: yes
+
+    - name: Debug Composer Installation
+      debug:
+        msg: "{{ composer_result.stdout_lines }}"
+
+
+    - name: Set up environment file
+      copy:
+        dest: "{{ app_dir }}/.env"
+        content: |
+          APP_NAME=Laravel
+          APP_ENV=local
+          APP_KEY=
+          APP_DEBUG=true
+          APP_URL=http://localhost
+          
+          LOG_CHANNEL=stack
+
+          DB_CONNECTION=pgsql
+          DB_HOST={{ db_host }}
+          DB_PORT={{ db_port }}
+          DB_DATABASE={{ db_name }}
+          DB_USERNAME={{ db_user }}
+          DB_PASSWORD={{ db_password }}
+
+          BROADCAST_DRIVER=log
+          CACHE_DRIVER=file
+          QUEUE_CONNECTION=redis
+          SESSION_DRIVER=file
+          SESSION_LIFETIME=120
+
+          REDIS_HOST=127.0.0.1
+          REDIS_PASSWORD=null
+          REDIS_PORT=6379
+
+          MAIL_MAILER=smtp
+          MAIL_HOST=smtp.mailtrap.io
+          MAIL_PORT=2525
+          MAIL_USERNAME=null
+          MAIL_PASSWORD=null
+          MAIL_ENCRYPTION=null
+
+          AWS_ACCESS_KEY_ID=
+          AWS_SECRET_ACCESS_KEY=
+          AWS_DEFAULT_REGION=us-east-1
+          AWS_BUCKET=
+
+          PUSHER_APP_ID=
+          PUSHER_APP_KEY=
+          PUSHER_APP_SECRET=
+          PUSHER_APP_CLUSTER=mt1
+
+          MIX_PUSHER_APP_KEY="${PUSHER_APP_KEY}"
+          MIX_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
+        owner: hng
+        group: hng
+        mode: '0644'
+
+    - name: Generate application key
+      command: |
+        cd {{ app_dir }}
+        php artisan key:generate
+
+    - name: Set up Supervisor to run Laravel queue worker
+      copy:
+        dest: /etc/supervisor/conf.d/laravel-worker.conf
+        content: |
+          [program:laravel-worker]
+          process_name=%(program_name)s_%(process_num)02d
+          command=php {{ app_dir }}/artisan queue:work redis --sleep=3 --tries=3 --daemon
+          autostart=true
+          autorestart=true
+          user=hng
+          numprocs=1
+          redirect_stderr=true
+          stdout_logfile=/var/log/stage_5b/worker.log
+        notify: Reload supervisor
+
+    - name: Reload Supervisor
+      supervisorctl:
+        state: reloaded
+
+    - name: Ensure application is running on 127.0.0.1:3000
+      command: |
+        cd {{ app_dir }}
+        nohup php artisan serve --host=127.0.0.1 --port=3000 > /var/log/stage_5b/out.log 2> /var/log/stage_5b/error.log &
+      environment:
+        PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
+        APP_ENV: "local"
+
+    - name: Configure Nginx to proxy pass to the app
+      ansible.builtin.template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/sites-available/stage_5b
+        mode: '0644'
+
+    - name: Enable Nginx configuration
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/stage_5b
+        dest: /etc/nginx/sites-enabled/stage_5b
+        state: link
+
+    - name: Ensure Nginx service is running
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Ensure logging directory exists
+      ansible.builtin.file:
+        path: /var/log/stage_5b
+        state: directory
+        mode: '0755'
+        owner: hng
+        group: hng
+
+    - name: Create stdout log file
+      ansible.builtin.file:
+        path: /var/log/stage_5b/out.log
+        state: touch
+        owner: hng
+        group: hng
+        mode: '0644'
