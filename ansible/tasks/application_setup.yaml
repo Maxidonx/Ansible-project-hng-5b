@@ -18,4 +18,3 @@
   command: composer install
   args:
     chdir: /opt/stage_5b
-

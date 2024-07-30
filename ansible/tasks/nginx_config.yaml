@@ -14,4 +14,3 @@
 
 - name: Enable Nginx site configuration
   command: nginx -s reload
-

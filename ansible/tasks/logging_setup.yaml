@@ -7,7 +7,7 @@
     group: hng
     mode: '0755'
 
-- name: Configure stderr and stdout logging
+- name: Configure stdout logging
   lineinfile:
     path: /etc/systemd/system/stage_5b.service
     line: 'StandardOutput=append:/var/log/stage_5b/out.log'
