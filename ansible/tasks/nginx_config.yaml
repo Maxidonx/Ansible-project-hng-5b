@@ -13,4 +13,17 @@
     mode: '0644'
 
 - name: Enable Nginx site configuration
-  command: nginx -s reload
+  file:
+    src: /etc/nginx/sites-available/stage_5b
+    dest: /etc/nginx/sites-enabled/stage_5b
+    state: link
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Restart Nginx service
+  service:
+    name: nginx
+    state: restarted

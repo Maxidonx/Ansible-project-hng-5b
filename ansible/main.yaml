@@ -2,15 +2,21 @@
 - name: Setup PHP Laravel Application
   hosts: hng
   become: yes
+  
+  vars_files:
+    - var/secrets.yaml  # Ensure this path is correct
   tasks:
+    # - name: Debug PostgreSQL credentials
+    #   debug:
+    #     msg:
+    #       - "PostgreSQL Admin Password: {{ postgres_admin_password }}"
+    #       - "PostgreSQL User Password: {{ postgres_user_password }}"
+      
     - name: Include setup user and directories
       import_tasks: tasks/setup_user_and_directories.yaml
 
     - name: Include install dependencies
       import_tasks: tasks/install_dependencies.yaml
-
-    - name: Include PostgreSQL setup
-      import_tasks: tasks/setup_postgresql.yaml
 
     - name: Include messaging queue setup
       import_tasks: tasks/setup_messaging_queue.yaml
@@ -20,9 +26,9 @@
 
     - name: Include logging setup
       import_tasks: tasks/logging_setup.yaml
+    
+    - name: Include PostgreSQL setup
+      import_tasks: tasks/setup_postgresql.yaml
 
     - name: Include Nginx configuration
       import_tasks: tasks/nginx_config.yaml
-
-
-

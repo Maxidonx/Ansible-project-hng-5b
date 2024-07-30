@@ -5,72 +5,32 @@
     state: started
     enabled: yes
 
-- name: Manually locate PostgreSQL configuration directory
-  shell: |
-    find / -name pg_hba.conf 2>/dev/null | head -n 1
-  register: pg_hba_conf_path
-
-- name: Fail if pg_hba.conf is not found
-  fail:
-    msg: "pg_hba.conf file not found"
-  when: pg_hba_conf_path.stdout == ""
-
-- name: Backup original pg_hba.conf
-  copy:
-    src: "{{ pg_hba_conf_path.stdout }}"
-    dest: "{{ pg_hba_conf_path.stdout }}.backup"
-    remote_src: yes
-
-- name: Allow password authentication for postgres user
+- name: Update PostgreSQL authentication method to md5
   lineinfile:
-    path: "{{ pg_hba_conf_path.stdout }}"
-    regexp: '^local\s+all\s+postgres\s+.*'
-    line: 'local   all             postgres                                md5'
-
-- name: Restart PostgreSQL service to apply authentication change
-  service:
-    name: postgresql
-    state: restarted
-
-# - name: Locate PostgreSQL configuration directory
-#   command: "psql -U postgres -c 'SHOW config_file;'"
-#   register: pg_config
-#   changed_when: false
-#   environment:
-#     PGPASSWORD: "{{ postgres_admin_password }}"
-
-# - name: Set PostgreSQL configuration directory
-#   set_fact:
-#     pg_config_dir: "{{ pg_config.stdout | regex_replace('/postgresql.conf', '') }}"
-
-- name: Revert pg_hba.conf to original state
-  copy:
-    src: "{{ pg_hba_conf_path.stdout }}.backup"
-    dest: "{{ pg_hba_conf_path.stdout }}"
-    remote_src: yes
-
-- name: Restart PostgreSQL service to apply reverted authentication change
-  service:
-    name: postgresql
-    state: restarted
-
-# - name: Update PostgreSQL authentication method to md5 for local connections
-#   lineinfile:
-#     path: "{{ pg_hba_conf_path.stdout }}"
-#     regexp: '^local\s+all\s+all\s+.*\s+peer$'
-#     line: 'local   all             all                                     md5'
-#     state: present
-#   when: pg_config.stdout != ""
+    path: /etc/postgresql/16/main/pg_hba.conf
+    regexp: '^(host\s+all\s+all\s+127\.0\.0\.1/32\s+).*'
+    line: 'host    all             all             127.0.0.1/32            md5'
+    state: present
 
 - name: Restart PostgreSQL service
   service:
     name: postgresql
     state: restarted
 
-# - name: Create PostgreSQL database
-#   postgresql_db:
-#     name: stage_5b
-#     state: present
+- name: Create PostgreSQL database
+  community.postgresql.postgresql_db:
+    name: stage_5b
+    state: present
+    login_user: postgres
+    login_password: "{{ postgres_admin_password }}"
+
+- name: Create PostgreSQL user
+  community.postgresql.postgresql_user:
+    name: hng_user
+    password: "{{ postgres_user_password }}"
+    db: stage_5b
+    priv: "ALL"
+    state: present
 
 - name: Save PostgreSQL admin credentials
   copy:
@@ -81,11 +41,3 @@
     owner: hng
     group: hng
     mode: '0600'
-
-# - name: Create PostgreSQL user
-#   postgresql_user:
-#     name: hng_user
-#     password: "{{ postgres_user_password }}"
-#     db: stage_5b
-#     priv: "ALL"
-#     state: present

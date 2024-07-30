@@ -14,7 +14,73 @@
     group: hng
     recurse: yes
 
+- name: Copy .env file
+  copy:
+    src: /opt/stage_5b/.env.example
+    dest: /opt/stage_5b/.env
+    remote_src: yes
+
+- name: Update .env file
+  lineinfile:
+    path: /opt/stage_5b/.env
+    regexp: '^DB_CONNECTION='
+    line: 'DB_CONNECTION=pgsql'
+
+- name: Update .env file for DB host
+  lineinfile:
+    path: /opt/stage_5b/.env
+    regexp: '^DB_HOST='
+    line: 'DB_HOST=127.0.0.1'
+
+- name: Update .env file for DB port
+  lineinfile:
+    path: /opt/stage_5b/.env
+    regexp: '^DB_PORT='
+    line: 'DB_PORT=5432'
+
+- name: Update .env file for DB database
+  lineinfile:
+    path: /opt/stage_5b/.env
+    regexp: '^DB_DATABASE='
+    line: 'DB_DATABASE=stage_5b'
+
+- name: Update .env file for DB password
+  become: true
+  lineinfile:
+    path: /opt/stage_5b/.env
+    regexp: '^DB_PASSWORD='
+    line: 'DB_PASSWORD={{ postgres_user_password }}'
+  
+
+- name: Update .env file for DB password
+  lineinfile:
+    path: /opt/stage_5b/.env
+    regexp: '^DB_PASSWORD='
+    line: 'DB_PASSWORD={{ postgres_user_password }}'
+
 - name: Install Composer dependencies
   command: composer install
   args:
     chdir: /opt/stage_5b
+
+- name: Generate application key
+  command: php artisan key:generate
+  args:
+    chdir: /opt/stage_5b
+
+- name: Generate JWT secret
+  command: php artisan jwt:secret
+  args:
+    chdir: /opt/stage_5b
+
+- name: Run database migrations and seed
+  command: php artisan migrate --seed
+  args:
+    chdir: /opt/stage_5b
+
+- name: Start the Laravel development server
+  command: php artisan serve --host=127.0.0.1 --port=3000
+  args:
+    chdir: /opt/stage_5b
+  async: 1
+  poll: 0
