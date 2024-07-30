@@ -1,4 +1,5 @@
 ---
+# Ensure this file contains only tasks, no play definitions
 - name: Clone the repository
   git:
     repo: 'https://github.com/hngprojects/hng_boilerplate_php_laravel_web.git'
@@ -20,7 +21,7 @@
     dest: /opt/stage_5b/.env
     remote_src: yes
 
-- name: Update .env file
+- name: Update .env file for DB connection
   lineinfile:
     path: /opt/stage_5b/.env
     regexp: '^DB_CONNECTION='
@@ -45,42 +46,24 @@
     line: 'DB_DATABASE=stage_5b'
 
 - name: Update .env file for DB password
-  become: true
-  lineinfile:
-    path: /opt/stage_5b/.env
-    regexp: '^DB_PASSWORD='
-    line: 'DB_PASSWORD={{ postgres_user_password }}'
-  
-
-- name: Update .env file for DB password
   lineinfile:
     path: /opt/stage_5b/.env
     regexp: '^DB_PASSWORD='
     line: 'DB_PASSWORD={{ postgres_user_password }}'
 
-- name: Install Composer dependencies
-  command: composer install
+- name: Download Composer installer
+  command: curl -v https://getcomposer.org/installer | php
   args:
-    chdir: /opt/stage_5b
+    chdir: /tmp
+  register: composer_install_output
+  ignore_errors: yes  # To proceed with other tasks even if this fails
 
-- name: Generate application key
-  command: php artisan key:generate
-  args:
-    chdir: /opt/stage_5b
+- name: Debug Composer install output
+  debug:
+    msg: "{{ composer_install_output.stdout }}"
+  when: composer_install_output is defined
 
-- name: Generate JWT secret
-  command: php artisan jwt:secret
-  args:
-    chdir: /opt/stage_5b
-
-- name: Run database migrations and seed
-  command: php artisan migrate --seed
-  args:
-    chdir: /opt/stage_5b
-
-- name: Start the Laravel development server
-  command: php artisan serve --host=127.0.0.1 --port=3000
-  args:
-    chdir: /opt/stage_5b
-  async: 1
-  poll: 0
+- name: Debug Composer install error
+  debug:
+    msg: "{{ composer_install_output.stderr }}"
+  when: composer_install_output is defined and composer_install_output.stderr | length > 0
